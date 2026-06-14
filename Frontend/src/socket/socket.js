@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:5000", {
+const socket = io("https://api-rate-limiter-1xhr.onrender.com", {
   transports: ["websocket"],
 });
 
