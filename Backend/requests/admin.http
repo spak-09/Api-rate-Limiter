@@ -1,0 +1,33 @@
+@baseUrl = http://localhost:5000
+@token = 
+
+### Update algorithm
+POST {{baseUrl}}/api/admin/algorithm
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "algorithm": "sliding-window"
+}
+
+### Update limits
+POST {{baseUrl}}/api/admin/limits
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "maxRequests": 150,
+  "windowSize": 60
+}
+
+### List users
+GET {{baseUrl}}/api/admin/users
+Authorization: Bearer {{token}}
+
+### Stats overview
+GET {{baseUrl}}/api/admin/stats
+Authorization: Bearer {{token}}
+
+### Top users
+GET {{baseUrl}}/api/admin/top-users
+Authorization: Bearer {{token}}

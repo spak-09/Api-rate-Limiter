@@ -1,0 +1,25 @@
+@baseUrl = http://localhost:5000
+@token = 
+
+### Register user
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+### Login user
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+### Logout user
+POST {{baseUrl}}/api/auth/logout
+Content-Type: application/json

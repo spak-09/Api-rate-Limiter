@@ -1,0 +1,14 @@
+@baseUrl = http://localhost:5000
+@token = 
+
+### Get requests
+GET {{baseUrl}}/api/analytics/requests
+Authorization: Bearer {{token}}
+
+### Get blocked analytics
+GET {{baseUrl}}/api/analytics/blocked
+Authorization: Bearer {{token}}
+
+### Get overview
+GET {{baseUrl}}/api/analytics/overview
+Authorization: Bearer {{token}}
