@@ -1,16 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import axiosInstance from "../api/axiosInstance.js";
 import { Sidebar } from "../components/Sidebar.jsx";
 import { StatCard } from "../components/StatCard.jsx";
-import { ChartCard } from "../components/ChartCard.jsx";
 import { useAuthStore } from "../store/authStore.js";
 
 export const AdminDashboard = () => {
   const currentUser = useAuthStore((state) => state.currentUser);
   const [stats, setStats] = useState(null);
-  const [requestData, setRequestData] = useState([]);
-  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -23,15 +20,9 @@ export const AdminDashboard = () => {
       setError(null);
 
       try {
-        const [statsResponse, requestsResponse, usersResponse] = await Promise.all([
-          axiosInstance.get("/api/admin/stats"),
-          axiosInstance.get("/api/analytics/requests"),
-          axiosInstance.get("/api/admin/users"),
-        ]);
+        const statsResponse = await axiosInstance.get("/api/admin/stats");
 
         setStats(statsResponse.data.stats || null);
-        setRequestData(requestsResponse.data.requests || []);
-        setUsers(usersResponse.data.users || []);
       } catch (fetchError) {
         setError(fetchError.response?.data?.message || "Unable to load admin dashboard");
       } finally {
@@ -41,18 +32,6 @@ export const AdminDashboard = () => {
 
     loadStats();
   }, [currentUser]);
-
-  const trendData = useMemo(() => {
-    if (!requestData.length) return [];
-
-    const counts = requestData.reduce((acc, request) => {
-      const date = new Date(request.timestamp).toLocaleDateString();
-      acc[date] = (acc[date] || 0) + 1;
-      return acc;
-    }, {});
-
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [requestData]);
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
@@ -102,23 +81,16 @@ export const AdminDashboard = () => {
               ))}
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
-              <ChartCard
-                title="Request volume"
-                data={trendData.length ? trendData : [{ name: "No data", value: 0 }]}
-                type="area"
-              />
-              <div className="rounded-[2rem] border border-border bg-[#151B28]/90 p-6 shadow-glow">
-                <p className="text-sm uppercase tracking-[0.3em] text-[#8B95AE]">Current limits</p>
-                <div className="mt-6 space-y-4 text-sm text-[#A3AFC8]">
-                  <div className="rounded-3xl border border-border bg-[#11151F]/70 p-4">
-                    <p>Max requests</p>
-                    <p className="mt-2 text-white">{stats?.settings?.maxRequests ?? "-"}</p>
-                  </div>
-                  <div className="rounded-3xl border border-border bg-[#11151F]/70 p-4">
-                    <p>Window size</p>
-                    <p className="mt-2 text-white">{stats?.settings?.windowSize ?? "-"} seconds</p>
-                  </div>
+            <div className="rounded-[2rem] border border-border bg-[#151B28]/90 p-6 shadow-glow">
+              <p className="text-sm uppercase tracking-[0.3em] text-[#8B95AE]">Current limits</p>
+              <div className="mt-6 space-y-4 text-sm text-[#A3AFC8]">
+                <div className="rounded-3xl border border-border bg-[#11151F]/70 p-4">
+                  <p>Max requests</p>
+                  <p className="mt-2 text-white">{stats?.settings?.maxRequests ?? "-"}</p>
+                </div>
+                <div className="rounded-3xl border border-border bg-[#11151F]/70 p-4">
+                  <p>Window size</p>
+                  <p className="mt-2 text-white">{stats?.settings?.windowSize ?? "-"} seconds</p>
                 </div>
               </div>
             </div>
