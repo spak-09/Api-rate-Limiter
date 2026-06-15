@@ -24,6 +24,9 @@ const startServer = async () => {
     initAnalyticsSocket(server, app);
     await initDefaultSettings();
     await initializeAdminUser();
+    await initializeProducts();
+    await initializePosts();
+    await initializeNews();
 
     server.listen(port, () => {
       console.log(`Server running on port ${port}`);

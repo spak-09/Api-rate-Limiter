@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import axiosInstance from "../api/axiosInstance.js";
 import { Sidebar } from "../components/Sidebar.jsx";
-import { StatCard } from "../components/StatCard.jsx";
 import { JsonViewer } from "../components/JsonViewer.jsx";
 import { useAuthStore } from "../store/authStore.js";
 import {
@@ -22,22 +21,15 @@ const apiOptions = [
   { label: "News API", value: "news", path: "/api/data/news" },
 ];
 
-const requestOptions = [1, 5, 10, 25, 50, 100];
-const rateOptions = [10, 20, 30, 60, 120, 240];
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export const Dashboard = () => {
   const currentUser = useAuthStore((state) => state.currentUser);
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState(apiOptions[0]);
-  const [selectedRequests, setSelectedRequests] = useState(5);
-  const [selectedRate, setSelectedRate] = useState(60);
-  const [simulatorStatus, setSimulatorStatus] = useState(null);
-  const [simulatorLoading, setSimulatorLoading] = useState(false);
-  const [selectedEndpointUrl, setSelectedEndpointUrl] = useState(null);
+  const [responseData, setResponseData] = useState(null);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState(null);
 
   const loadUsage = async () => {
     if (!currentUser) return;
@@ -83,36 +75,31 @@ export const Dashboard = () => {
     return Object.values(counts).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [usage]);
 
-  const handleSendRequests = async () => {
-    setSimulatorStatus(null);
-    setSimulatorLoading(true);
+  const handleGetData = async () => {
+    setResponseData(null);
+    setDataLoading(true);
+    setDataError(null);
 
     try {
       const endpointUrl = selectedEndpoint.path;
-      setSelectedEndpointUrl(`${axiosInstance.defaults.baseURL}${endpointUrl}`);
-      const intervalMs = Math.max(100, Math.round(60000 / selectedRate));
-      let successCount = 0;
-      let blockedCount = 0;
-
-      for (let i = 0; i < selectedRequests; i += 1) {
-        try {
-          await axiosInstance.get(endpointUrl);
-          successCount += 1;
-        } catch (err) {
-          blockedCount += 1;
-        }
-
-        if (i < selectedRequests - 1) {
-          await sleep(intervalMs);
-        }
-      }
-
-      setSimulatorStatus(`Sent ${selectedRequests} request${selectedRequests === 1 ? "" : "s"} to ${selectedEndpoint.label} at ${selectedRate} requests/min. ${successCount} succeeded, ${blockedCount} blocked.`);
-    } catch (sendError) {
-      setSimulatorStatus("Unable to complete requests. Try again later.");
-    } finally {
-      setSimulatorLoading(false);
+      const response = await axiosInstance.get(endpointUrl);
+      setResponseData({
+        method: "GET",
+        path: endpointUrl,
+        data: response.data.data || [],
+        timestamp: new Date().toLocaleTimeString(),
+        url: `${axiosInstance.defaults.baseURL}${endpointUrl}`,
+      });
       await loadUsage();
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message;
+      if (err.response?.status === 429) {
+        setDataError("Rate limit exceeded. You have reached your request quota for this period.");
+      } else {
+        setDataError(`Unable to fetch data: ${errorMessage}`);
+      }
+    } finally {
+      setDataLoading(false);
     }
   };
 
@@ -124,33 +111,6 @@ export const Dashboard = () => {
     return <Navigate to="/admin" replace />;
   }
 
-  const stats = [
-    {
-      title: "Requests Used",
-      value: usage?.totalRequests ?? "0",
-      label: "Total requests",
-      accent: true,
-    },
-    {
-      title: "Remaining Requests",
-      value: usage?.remainingRequests ?? "Unavailable",
-      label: "Current quota",
-      accent: false,
-    },
-    {
-      title: "Blocked Requests",
-      value: usage?.blockedRequests ?? "0",
-      label: "Protected traffic",
-      accent: false,
-    },
-    {
-      title: "Current Algorithm",
-      value: usage?.currentAlgorithm ?? "Unavailable",
-      label: "Policy status",
-      accent: false,
-    },
-  ];
-
   return (
     <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
       <Sidebar />
@@ -161,20 +121,14 @@ export const Dashboard = () => {
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {stats.map((item) => (
-            <StatCard key={item.title} {...item} />
-          ))}
-        </div>
-
         <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
           <div className="rounded-[2rem] border border-border bg-[#151B28]/90 p-6 shadow-glow">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-[#8B95AE]">Request Simulator</p>
-                <p className="mt-2 text-sm text-[#A3AFC8]">Generate real traffic against your protected data APIs.</p>
+                <p className="text-sm uppercase tracking-[0.3em] text-[#8B95AE]">API Testing Tool</p>
+                <p className="mt-2 text-sm text-[#A3AFC8]">Select an API endpoint and fetch data.</p>
               </div>
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="w-full md:w-auto">
                 <label className="block text-sm text-[#A3AFC8]">
                   API Endpoint
                   <select
@@ -192,82 +146,88 @@ export const Dashboard = () => {
                     ))}
                   </select>
                 </label>
-
-                <label className="block text-sm text-[#A3AFC8]">
-                  Request Count
-                  <select
-                    value={selectedRequests}
-                    onChange={(event) => setSelectedRequests(Number(event.target.value))}
-                    className="mt-2 w-full rounded-3xl border border-border bg-[#11151F] px-4 py-3 text-sm text-white outline-none"
-                  >
-                    {requestOptions.map((count) => (
-                      <option key={count} value={count}>
-                        {count}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block text-sm text-[#A3AFC8]">
-                  Requests / min
-                  <select
-                    value={selectedRate}
-                    onChange={(event) => setSelectedRate(Number(event.target.value))}
-                    className="mt-2 w-full rounded-3xl border border-border bg-[#11151F] px-4 py-3 text-sm text-white outline-none"
-                  >
-                    {rateOptions.map((rate) => (
-                      <option key={rate} value={rate}>
-                        {rate}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
             </div>
 
             <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm text-[#A3AFC8]">Selected endpoint:</p>
+                <p className="text-sm text-[#A3AFC8]">Selected API:</p>
                 <p className="mt-1 text-lg font-semibold text-white">{selectedEndpoint.label}</p>
               </div>
               <button
                 type="button"
-                onClick={handleSendRequests}
-                disabled={simulatorLoading}
+                onClick={handleGetData}
+                disabled={dataLoading}
                 className="inline-flex items-center justify-center rounded-3xl bg-accent px-6 py-3 text-sm font-semibold text-black transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {simulatorLoading ? "Sending..." : "Send Requests"}
+                {dataLoading ? "Fetching..." : "Get Data"}
               </button>
             </div>
 
-            {simulatorStatus && (
-              <div className="mt-4 text-sm text-[#A3AFC8]">
-                <p>{simulatorStatus}</p>
-                {selectedEndpointUrl && (
-                  <p className="mt-2">
-                    <a href={selectedEndpointUrl} target="_blank" rel="noreferrer" className="text-accent">
-                      GET {selectedEndpointUrl}
-                    </a>
-                  </p>
-                )}
+            {dataError && (
+              <div className="mt-4 rounded-2xl border border-danger/20 bg-[#2B1318] p-4 text-sm text-danger">
+                {dataError}
               </div>
             )}
           </div>
 
           <div className="rounded-[2rem] border border-border bg-[#151B28]/90 p-6 shadow-glow">
-            <p className="text-sm uppercase tracking-[0.3em] text-[#8B95AE]">Status</p>
-            <div className="mt-6 space-y-4">
+            <p className="text-sm uppercase tracking-[0.3em] text-[#8B95AE]">Selected API</p>
+            <div className="mt-6">
               <div className="rounded-3xl border border-border bg-[#11151F]/80 p-4">
-                <p className="text-sm text-[#A3AFC8]">Selected API</p>
+                <p className="text-sm text-[#A3AFC8]">Current Selection</p>
                 <p className="mt-2 text-lg font-semibold text-white">{selectedEndpoint.label}</p>
-              </div>
-              <div className="rounded-3xl border border-border bg-[#11151F]/80 p-4">
-                <p className="text-sm text-[#A3AFC8]">Request batch</p>
-                <p className="mt-2 text-lg font-semibold text-white">{selectedRequests}</p>
               </div>
             </div>
           </div>
         </div>
+
+        {responseData && (
+          <div className="rounded-[2rem] border border-border bg-[#151B28]/90 p-6 shadow-glow">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="text-sm uppercase tracking-[0.3em] text-[#8B95AE]">API Response</p>
+                <p className="mt-2 text-sm text-[#A3AFC8]">Data retrieved from {selectedEndpoint.label}</p>
+              </div>
+              <span className="text-xs text-[#A3AFC8]">{responseData.timestamp}</span>
+            </div>
+            <p className="text-xs text-[#A3AFC8] mb-4">Endpoint: <a href={responseData.url} target="_blank" rel="noreferrer" className="text-accent">GET {responseData.url}</a></p>
+            
+            {responseData.data && responseData.data.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {responseData.data.map((item, index) => (
+                  <div key={item._id || index} className="rounded-2xl border border-border bg-[#11151F]/80 p-4 hover:border-accent/50 transition">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs text-[#8B95AE] uppercase tracking-wide">
+                          {selectedEndpoint.value === "products" ? "Product Name" : "Title"}
+                        </p>
+                        <p className="mt-1 text-base font-semibold text-white line-clamp-2">
+                          {item.name || item.title}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[#8B95AE] uppercase tracking-wide">Details</p>
+                        <p className="mt-1 text-sm text-[#A3AFC8] line-clamp-3">
+                          {item.description || item.content}
+                        </p>
+                      </div>
+                      {item._id && (
+                        <p className="text-xs text-[#5A6471] pt-2 border-t border-border/50">
+                          ID: {item._id.substring(0, 8)}...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-[#11151F]/80 p-6 text-center">
+                <p className="text-sm text-[#A3AFC8]">No data available</p>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
           <div className="rounded-[2rem] border border-border bg-[#151B28]/90 p-6 shadow-glow">

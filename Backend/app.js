@@ -13,7 +13,13 @@ import { errorMiddleware } from "./middlewares/errorMiddleware.js";
 const app = exp();
 
 app.use(exp.json());
-app.use(cors());
+app.use(
+  cors({
+    origin: "https://api-rate-limiter-1-07yk.onrender.com",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  })
+);
 app.use(helmet());
 app.use(cookieParser());
 app.use(morgan("combined"));

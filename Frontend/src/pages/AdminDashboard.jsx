@@ -11,14 +11,8 @@ export const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [requestData, setRequestData] = useState([]);
   const [users, setUsers] = useState([]);
-  const [selectedUserId, setSelectedUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [updateLoading, setUpdateLoading] = useState(false);
-  const [updateError, setUpdateError] = useState(null);
-  const [algorithm, setAlgorithm] = useState("");
-  const [maxRequests, setMaxRequests] = useState("");
-  const [windowSize, setWindowSize] = useState("");
 
   useEffect(() => {
     const loadStats = async () => {
@@ -47,64 +41,6 @@ export const AdminDashboard = () => {
 
     loadStats();
   }, [currentUser]);
-
-  useEffect(() => {
-    if (selectedUserId && users.length > 0) {
-      const selected = users.find((u) => u._id === selectedUserId);
-      if (selected) {
-        setAlgorithm(selected.algorithm || "");
-        setMaxRequests(selected.maxRequests || "");
-        setWindowSize(selected.windowSize || "");
-      }
-    }
-  }, [selectedUserId, users]);
-
-  const handleUpdateAlgorithm = async () => {
-    if (!selectedUserId || !algorithm) {
-      setUpdateError("Please select a user and algorithm");
-      return;
-    }
-
-    setUpdateLoading(true);
-    setUpdateError(null);
-
-    try {
-      await axiosInstance.post(`/api/admin/user/${selectedUserId}/algorithm`, { algorithm });
-      const updated = users.map((u) => (u._id === selectedUserId ? { ...u, algorithm } : u));
-      setUsers(updated);
-      setUpdateError(null);
-    } catch (err) {
-      setUpdateError(err.response?.data?.message || "Failed to update algorithm");
-    } finally {
-      setUpdateLoading(false);
-    }
-  };
-
-  const handleUpdateLimits = async () => {
-    if (!selectedUserId || !maxRequests || !windowSize) {
-      setUpdateError("Please select a user and fill all limit fields");
-      return;
-    }
-
-    setUpdateLoading(true);
-    setUpdateError(null);
-
-    try {
-      await axiosInstance.post(`/api/admin/user/${selectedUserId}/limits`, {
-        maxRequests: parseInt(maxRequests),
-        windowSize: parseInt(windowSize),
-      });
-      const updated = users.map((u) =>
-        u._id === selectedUserId ? { ...u, maxRequests: parseInt(maxRequests), windowSize: parseInt(windowSize) } : u
-      );
-      setUsers(updated);
-      setUpdateError(null);
-    } catch (err) {
-      setUpdateError(err.response?.data?.message || "Failed to update limits");
-    } finally {
-      setUpdateLoading(false);
-    }
-  };
 
   const trendData = useMemo(() => {
     if (!requestData.length) return [];
@@ -184,87 +120,6 @@ export const AdminDashboard = () => {
                     <p className="mt-2 text-white">{stats?.settings?.windowSize ?? "-"} seconds</p>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="rounded-[2rem] border border-border bg-[#151B28]/90 p-8 shadow-glow">
-              <h3 className="text-lg font-semibold text-white mb-6">Configure User Settings</h3>
-              {updateError && <div className="mb-4 rounded-2xl border border-danger/20 bg-[#2B1318] p-4 text-sm text-danger">{updateError}</div>}
-              
-              <div className="space-y-6">
-                <div>
-                  <label className="block mb-2 text-sm text-[#A3AFC8]">Select User</label>
-                  <select
-                    value={selectedUserId || ""}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                    className="w-full rounded-2xl border border-border bg-[#11151F] px-4 py-3 text-white"
-                  >
-                    <option value="">Choose a user...</option>
-                    {users.map((user) => (
-                      <option key={user._id} value={user._id}>
-                        {user.name} ({user.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {selectedUserId && (
-                  <>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="block mb-2 text-sm text-[#A3AFC8]">Algorithm</label>
-                        <select
-                          value={algorithm}
-                          onChange={(e) => setAlgorithm(e.target.value)}
-                          className="w-full rounded-2xl border border-border bg-[#11151F] px-4 py-3 text-white"
-                        >
-                          <option value="">Select algorithm...</option>
-                          <option value="fixed-window">Fixed Window</option>
-                          <option value="sliding-window">Sliding Window</option>
-                          <option value="token-bucket">Token Bucket</option>
-                          <option value="leaky-bucket">Leaky Bucket</option>
-                        </select>
-                      </div>
-                      <button
-                        onClick={handleUpdateAlgorithm}
-                        disabled={updateLoading}
-                        className="mt-6 rounded-2xl bg-accent px-6 py-2 text-white hover:bg-indigo-500 disabled:opacity-50"
-                      >
-                        {updateLoading ? "Updating..." : "Set Algorithm"}
-                      </button>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div>
-                        <label className="block mb-2 text-sm text-[#A3AFC8]">Max Requests</label>
-                        <input
-                          type="number"
-                          value={maxRequests}
-                          onChange={(e) => setMaxRequests(e.target.value)}
-                          className="w-full rounded-2xl border border-border bg-[#11151F] px-4 py-3 text-white"
-                          placeholder="e.g., 100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block mb-2 text-sm text-[#A3AFC8]">Window Size (sec)</label>
-                        <input
-                          type="number"
-                          value={windowSize}
-                          onChange={(e) => setWindowSize(e.target.value)}
-                          className="w-full rounded-2xl border border-border bg-[#11151F] px-4 py-3 text-white"
-                          placeholder="e.g., 60"
-                        />
-                      </div>
-                      <button
-                        onClick={handleUpdateLimits}
-                        disabled={updateLoading}
-                        className="mt-6 rounded-2xl bg-accent px-6 py-2 text-white hover:bg-indigo-500 disabled:opacity-50"
-                      >
-                        {updateLoading ? "Updating..." : "Set Limits"}
-                      </button>
-                    </div>
-                  </>
-                )}
               </div>
             </div>
           </>

@@ -16,7 +16,7 @@ dataApp.get(
   requestLogger,
   rateLimiter,
   asyncHandler(async (req, res) => {
-    const products = await ProductModel.find().lean();
+    const products = await ProductModel.find().select("_id name description").lean();
     res.status(200).json({
       success: true,
       data: products,
@@ -32,7 +32,7 @@ dataApp.get(
   requestLogger,
   rateLimiter,
   asyncHandler(async (req, res) => {
-    const posts = await PostModel.find().lean();
+    const posts = await PostModel.find().select("_id title content").lean();
     res.status(200).json({
       success: true,
       data: posts,
@@ -48,7 +48,7 @@ dataApp.get(
   requestLogger,
   rateLimiter,
   asyncHandler(async (req, res) => {
-    const news = await NewsModel.find().lean();
+    const news = await NewsModel.find().select("_id title content").lean();
     res.status(200).json({
       success: true,
       data: news,
